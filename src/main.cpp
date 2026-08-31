@@ -28,8 +28,8 @@ class $modify(MyPlayLayer, PlayLayer) {
         // La añadimos visualmente a la capa del nivel (PlayLayer)
         this->addChild(etiquetaOnline, 100);
 
-        // 2. Añadimos el truco del tiempo (?t=) para saltarnos el caché de GitHub y probar al instante
-        std::string url = "https://githubusercontent.com" + std::to_string(std::time(nullptr));
+        // 2. CORREGIDO: Aquí está ahora SÍ la dirección completa y exacta de tu repositorio y archivo
+        std::string url = "https://githubusercontent.com/Test_geode_online_text/main/datos.json" + std::to_string(std::time(nullptr));
 
         // 3. Realizamos la petición de red en segundo plano
         web::WebRequest()
