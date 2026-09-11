@@ -1,71 +1,74 @@
-#include <geode/prelude.hpp>
-#include <geode/utils/web.hpp>
-#include <matjson.hpp>
+#include <Geode/Geode.hpp>
+#include <Geode/modify/CommentCell.hpp>
 
 using namespace geode::prelude;
 
-class $modify(MyPlayLayer, PlayLayer) {
+class $modify(MyCommentCell, CommentCell) {
     
-    bool init(GJGameLevel* level, bool useReplay, bool dontSave) {
-        if (!PlayLayer::init(level, useReplay, dontSave)) {
-            return false;
+    // loadFromComment es el método donde se construye visualmente la celda del comentario
+    void loadFromComment(GJComment* comment) {
+        // Ejecutamos la función original primero para que se cree el comentario base
+        CommentCell::loadFromComment(comment);
+
+        // Validamos si la configuración del mod está activa
+        bool enabled = Mod::get()->getSettingValue<bool>("show-like");
+        if (!enabled) return;
+
+        // Buscamos el menú principal de botones dentro de la celda (usualmente se llama "main-menu")
+        if (auto menu = this->getChildByID("main-menu")) {
+            
+            // Creamos el sprite del botón (puedes usar "GJ_likeBtn_001.png" o "GJ_dislikeBtn_001.png")
+            auto btnSprite = CCSprite::createWithSpriteFrameName("GJ_likeBtn_001.png");
+            
+            if (btnSprite) {
+                // Hacemos el botón un poco más pequeño para que encaje bien en la celda
+                btnSprite->setScale(0.7f);
+
+                auto myButton = CCMenuItemSpriteExtra::create(
+                    btnSprite,
+                    this,
+                    menu_selector(MyCommentCell::onShortcutCommentLike)
+                );
+
+                // Guardamos el puntero del comentario dentro del botón usando setUserObject 
+                // para poder leerlo cuando hagamos clic.
+                myButton->setUserObject(comment);
+                myButton->setID("shortcut-comment-like-button");
+
+                // Añadimos el botón al menú de la celda
+                menu->addChild(myButton);
+                menu->updateLayout();
+            }
         }
+    }
 
-        // 1. Creamos una etiqueta de texto temporal que diga "Cargando..."
-        // Usamos la fuente estándar del juego (bigFont.fnt)
-        auto etiquetaOnline = CCLabelBMFont::create("Cargando texto...", "bigFont.fnt");
-        
-        // Le asignamos un ID único para poder encontrarla e identificarla más tarde
-        etiquetaOnline->setID("texto-remoto-github"_spr);
-        
-        // La hacemos un poco más pequeña (escala 0.4) para que no estorbe
-        etiquetaOnline->setScale(0.4f);
-        
-        // La posicionamos en la esquina inferior izquierda de la pantalla
-        etiquetaOnline->setPosition({ 10.0f, 10.0f });
-        etiquetaOnline->setAnchorPoint({ 0.0f, 0.0f }); // Anclaje a la izquierda
-        
-        // La añadimos visualmente a la capa del nivel (PlayLayer)
-        this->addChild(etiquetaOnline, 100);
+    // Función que se ejecuta al presionar nuestro nuevo botón
+    void onShortcutCommentLike(CCObject* sender) {
+        auto button = static_cast<CCMenuItemSpriteExtra*>(sender);
+        if (!button) return;
 
-        // 2. CORREGIDO: Aquí está ahora SÍ la dirección completa y exacta de tu repositorio y archivo
-        std::string url = "https://githubusercontent.com/Test_geode_online_text/main/datos.json" + std::to_string(std::time(nullptr));
+        // Recuperamos el comentario asociado a este botón específico
+        auto comment = static_cast<GJComment*>(button->getUserObject());
+        if (!comment) return;
 
-        // 3. Realizamos la petición de red en segundo plano
-        web::WebRequest()
-            .get(url)
-            .listen([this](web::WebResponse* response) {
-                if (response->isSuccess()) {
-                    auto jsonResult = response->json();
-                    if (jsonResult.isSuccess()) {
-                        auto data = jsonResult.value();
-                        
-                        // Extraemos el string de tu JSON
-                        std::string textoRemoto = data["texto_pantalla"].asString().value_or("Llave no encontrada");
+        if (GameLevelManager::sharedState()) {
+            // Identificamos el tipo de comentario:
+            // Si comment->m_accountID es mayor a 0, suele ser un post de cuenta (tipo 3). 
+            // Si no, es un comentario de nivel (tipo 2).
+            int itemType = (comment->m_accountID > 0) ? 3 : 2;
+            int commentID = comment->m_commentID;
 
-                        // Volvemos al hilo principal para actualizar la interfaz del juego
-                        Loader::get()->queueInMainThread([this, textoRemoto]() {
-                            // Buscamos la etiqueta que creamos antes usando su ID único
-                            if (auto etiqueta = this->getChildByID("texto-remoto-github"_spr)) {
-                                // Cast seguro a CCLabelBMFont para poder cambiarle el texto
-                                if (auto label = typeinfo_cast<CCLabelBMFont*>(etiqueta)) {
-                                    label->setString(textoRemoto.c_str());
-                                }
-                            }
-                        });
-                    }
-                } else {
-                    // Si falla el internet, actualizamos la etiqueta con el error
-                    Loader::get()->queueInMainThread([this]() {
-                        if (auto etiqueta = this->getChildByID("texto-remoto-github"_spr)) {
-                            if (auto label = typeinfo_cast<CCLabelBMFont*>(etiqueta)) {
-                                label->setString("Error de conexión");
-                            }
-                        }
-                    });
-                }
-            });
+            // Enviamos el Like directo al servidor a través del manager del juego
+            // Parámetros: (TipoItem, ID, EsLike?, Especial/Contexto)
+            GameLevelManager::sharedState()->likeItem(
+                static_cast<LikeItemType>(itemType), 
+                commentID, 
+                true, // true = Like, false = Dislike
+                0
+            );
 
-        return true;
+            // Mostramos una alerta de confirmación en pantalla
+            FLAlertLayer::create("Like", "¡Like enviado al comentario!", "OK")->show();
+        }
     }
 };
