@@ -6,12 +6,16 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"id": "LexSunGD.like_comment",
-	"version": "1.0.0",
-	"name": "Like Comment",
-	"developer": "LexSunGD",
-	"description": "description.",
-	"repository": "githubcom",
-	"tags": [],
-	"settings": {}
+	"id": "ninxout.more_level_options",
+	"name": "More Level Options",
+	"version": "v1.0.3",
+	"developer": "ninXout",
+	"description": "It's just More Level Options.",
+	"dependencies": [
+		{
+            "id": "ninxout.options_api",
+            "version": "1.1.0",
+            "importance": "required"
+        }
+	]
 }
