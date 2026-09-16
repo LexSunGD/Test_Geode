@@ -8,7 +8,7 @@ else()
 endif()
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-project(SwingFlip VERSION 1.0.0)
+project(MoreLevelOptions VERSION 1.0.3)
 
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
