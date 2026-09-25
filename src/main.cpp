@@ -4,45 +4,37 @@
 
 using namespace geode::prelude;
 
-// Interceptamos la capa del menú de ajustes de la cuenta (More -> Account Settings)
+// Interceptamos el menú de configuración de cuenta
 class $modify(MyGJAccountSettingsLayer, GJAccountSettingsLayer) {
     
-    // Hacemos el hook a la función que se ejecuta cuando guardas/cierras el menú de privacidad
     void onClose(cocos2d::CCObject* sender) {
-        // 1. Dejamos que el juego haga su guardado normal primero
+        // 1. Ejecutamos primero la lógica normal del juego
         GJAccountSettingsLayer::onClose(sender);
         
-        log::info("Menú cerrado. Iniciando envío automático de claves 62 y 63 para la 2.209...");
-
-        // 2. Obtenemos los datos de sesión actuales del jugador directamente desde el juego
+        // 2. Extraemos los datos del usuario logueado
         auto accountManager = GJAccountManager::sharedState();
-        std::string accountID = std::to_string(accountManager->m_accountID);
-        std::string gdw = "0"; // Parámetro estándar de verificación de GD
-
-        // Si el usuario no ha iniciado sesión, no hacemos nada para evitar errores
         if (accountManager->m_accountID <= 0) {
-            log::error("Error: No has iniciado sesión en tu cuenta de Geometry Dash.");
+            log::error("Error: No has iniciado sesión en Geometry Dash.");
             return;
         }
 
-        // 3. Creamos el cuerpo de la petición HTTP POST de forma manual
-        // Añadimos las variables obligatorias del servidor junto con las nuevas claves (62=0 y 63=0)
-        std::string postData = "accountID=" + accountID + "&gdw=" + gdw + "&62=0&63=0";
+        std::string accountID = std::to_string(accountManager->m_accountID);
+        // Construimos el cuerpo de la petición estándar (Form URL Encoded)
+        std::string postData = "accountID=" + accountID + "&gdw=0&62=0&63=0";
 
-        // 4. Enviamos la petición usando el nuevo sistema web oficial de Geode 5.x
-        // Esto envía los datos de forma segura e independiente en segundo plano
-        ::geode::utils::web::AsyncWebRequest()
-            .join("https://boomlings.com")
-            .body(postData)
-            .post()
-            .send()
-            .listen(
-                [](auto* response) {
-                    log::info("¡Servidor respondio correctamente! Las claves 62 y 63 se han actualizado.");
-                },
-                [](auto* error) {
-                    log::error("Hubo un error al conectar con el servidor de RobTop.");
-                }
-            );
+        log::info("Enviando petición asíncrona para claves 62 y 63...");
+
+        // 3. Configuramos la petición web nativa de Geode
+        web::WebRequest req;
+        req.bodyString(postData);
+        req.header("Content-Type", "application/x-www-form-urlencoded");
+
+        // 4. Despachamos la solicitud en segundo plano usando el sistema async de Geode v5
+        geode::async::spawn(
+            req.post("https://boomlings.com"),
+            [](web::WebResponse resp) {
+                log::info("¡Petición enviada! Código de respuesta del servidor: {}", resp.code());
+            }
+        );
     }
 };
