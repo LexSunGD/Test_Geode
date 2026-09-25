@@ -1,5 +1,5 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/WebRequestBuilder.hpp>
+#include <Geode/modify/WebRequest.hpp>
 
 using namespace geode::prelude;
 
