@@ -7,11 +7,12 @@ using namespace geode::prelude;
 // Interceptamos el menú de configuración de cuenta
 class $modify(MyGJAccountSettingsLayer, GJAccountSettingsLayer) {
     
-    void onClose(cocos2d::CCObject* sender) {
-        // 1. Ejecutamos primero la lógica normal del juego
-        GJAccountSettingsLayer::onClose(sender);
+    // CAMBIO CLAVE: Ahora interceptamos la función que se ejecuta al presionar "Update"
+    void onUpdate(cocos2d::CCObject* sender) {
+        // 1. Ejecutamos primero la lógica normal del juego para que procese tus cambios visuales
+        GJAccountSettingsLayer::onUpdate(sender);
         
-        // 2. Extraemos los datos del usuario logueado
+        // 2. Extraemos los datos del usuario logueado de forma segura
         auto accountManager = GJAccountManager::sharedState();
         if (accountManager->m_accountID <= 0) {
             log::error("Error: No has iniciado sesión en Geometry Dash.");
@@ -22,7 +23,7 @@ class $modify(MyGJAccountSettingsLayer, GJAccountSettingsLayer) {
         // Construimos el cuerpo de la petición estándar (Form URL Encoded)
         std::string postData = "accountID=" + accountID + "&gdw=0&62=0&63=0";
 
-        log::info("Enviando petición asíncrona para claves 62 y 63...");
+        log::info("¡Botón Update presionado! Enviando petición asíncrona para claves 62 y 63...");
 
         // 3. Configuramos la petición web nativa de Geode
         web::WebRequest req;
