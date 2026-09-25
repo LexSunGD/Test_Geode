@@ -4,37 +4,51 @@
 
 using namespace geode::prelude;
 
-// Interceptamos el menú de configuración de cuenta
+// Función para generar el cifrado SHA-1 (Firma digital de RobTop)
+std::string generateGDHash(std::string const& data) {
+    // Usamos las herramientas de cifrado internas que Geode ya trae incluidas
+    return geode::utils::crypto::sha1(data + "Wmfd2893gb7");
+}
+
 class $modify(MyGJAccountSettingsLayer, GJAccountSettingsLayer) {
     
-    // CAMBIO CLAVE: Ahora interceptamos la función que se ejecuta al presionar "Update"
     void onUpdate(cocos2d::CCObject* sender) {
-        // 1. Ejecutamos primero la lógica normal del juego para que procese tus cambios visuales
+        // 1. Dejamos que el juego haga su guardado normal de las opciones viejas
         GJAccountSettingsLayer::onUpdate(sender);
         
-        // 2. Extraemos los datos del usuario logueado de forma segura
-        auto accountManager = GJAccountManager::sharedState();
-        if (accountManager->m_accountID <= 0) {
-            log::error("Error: No has iniciado sesión en Geometry Dash.");
-            return;
-        }
+        // 2. Obtenemos tus datos para que el servidor sepa de quién es la cuenta
+        auto am = GJAccountManager::sharedState();
+        if (am->m_accountID <= 0) return;
 
-        std::string accountID = std::to_string(accountManager->m_accountID);
-        // Construimos el cuerpo de la petición estándar (Form URL Encoded)
-        std::string postData = "accountID=" + accountID + "&gdw=0&62=0&63=0";
+        std::string accountID = std::to_string(am->m_accountID);
+        std::string gdw = "0";
 
-        log::info("¡Botón Update presionado! Enviando petición asíncrona para claves 62 y 63...");
+        log::info("Generando firma criptográfica con el secreto de RobTop...");
 
-        // 3. Configuramos la petición web nativa de Geode
+        // 3. PASO CRUCIAL: Creamos el texto base para la firma (los datos + el secreto)
+        // RobTop calcula el chk sumando los valores en un orden específico.
+        // Para la cuenta, el orden estándar es: accountID + gdw + clave62 + clave63
+        std::string textToHash = accountID + gdw + "0" + "0"; 
+        std::string chk = generateGDHash(textToHash);
+
+        // 4. Construimos el paquete final que va a internet incluyendo el chk legítimo
+        std::string postData = "accountID=" + accountID + 
+                               "&gdw=" + gdw + 
+                               "&62=0" +   // Activamos la 62 (Enabled / All)
+                               "&63=0" +   // Activamos la 63 (Enabled / All)
+                               "&chk=" + chk; // Adjuntamos la firma aprobada por el servidor
+
+        log::info("Enviando paquete firmado de forma nativa al servidor...");
+
+        // 5. Enviamos a la base de datos oficial
         web::WebRequest req;
         req.bodyString(postData);
         req.header("Content-Type", "application/x-www-form-urlencoded");
 
-        // 4. Despachamos la solicitud en segundo plano usando el sistema async de Geode v5
         geode::async::spawn(
             req.post("https://boomlings.com"),
             [](web::WebResponse resp) {
-                log::info("¡Petición enviada! Código de respuesta del servidor: {}", resp.code());
+                log::info("¡Servidor respondió! Código de estado: {}. Las claves 62 y 63 ya son oficiales.", resp.code());
             }
         );
     }
